@@ -46,6 +46,7 @@ const openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_API_KEY }));
 
 // Helper to generate embedding for a given text using OpenAI
 async function generateEmbedding(text) {
+  // Fallback: return an empty array if API key is not provided
   if (!OPENAI_API_KEY) {
     return [];
   }
@@ -61,7 +62,8 @@ async function generateEmbedding(text) {
 const tools = {
   remember_note: {
     name: 'remember_note',
-    description: 'Store a memory note. Use this to capture thoughts or information that should be persisted. It will generate semantic embeddings automatically.',
+    description:
+      'Store a memory note. Use this to capture thoughts or information that should be persisted. It will generate semantic embeddings automatically.',
     input_schema: {
       type: 'object',
       properties: {
@@ -85,11 +87,20 @@ const tools = {
     },
     readOnlyHint: false,
     run: async (args) => {
-      const { raw_text, source = 'manual', project = null, category = null, importance = 3, metadata = {} } = args;
+      const {
+        raw_text,
+        source = 'manual',
+        project = null,
+        category = null,
+        importance = 3,
+        metadata = {},
+      } = args;
+      // Generate embedding from the raw text
       const embedding = await generateEmbedding(raw_text);
+      // Insert into Supabase notes table
       const { data, error } = await supabase.from('notes').insert({
         user_id: MEMORY_OWNER_UUID,
-        raw_text,
+        raw_text: raw_text,
         clean_text: raw_text,
         source,
         project,
@@ -107,7 +118,8 @@ const tools = {
   },
   search_notes: {
     name: 'search_notes',
-    description: 'Semantic search across notes. Provide a free-text query and retrieve the most similar notes based on meaning.',
+    description:
+      'Semantic search across notes. Provide a free-text query and retrieve the most similar notes based on meaning.',
     input_schema: {
       type: 'object',
       properties: {
@@ -150,12 +162,14 @@ const tools = {
       if (error) {
         throw new Error('Search error: ' + error.message);
       }
+      // The RPC returns { id, raw_text, project, category, metadata, created_at, similarity }
       return { results: data };
     },
   },
   recent_notes: {
     name: 'recent_notes',
-    description: 'List the most recent notes stored for the current memory owner. Useful for browsing recent thoughts.',
+    description:
+      'List the most recent notes stored for the current memory owner. Useful for browsing recent thoughts.',
     input_schema: {
       type: 'object',
       properties: {
@@ -201,7 +215,8 @@ const tools = {
   },
   upsert_memory_fact: {
     name: 'upsert_memory_fact',
-    description: 'Create or update a structured fact associated with a note. Use this to promote important decisions or insights into a stable memory.',
+    description:
+      'Create or update a structured fact associated with a note. Use this to promote important decisions or insights into a stable memory.',
     input_schema: {
       type: 'object',
       properties: {
@@ -225,7 +240,14 @@ const tools = {
     },
     readOnlyHint: false,
     run: async (args) => {
-      const { note_id, fact_type, subject = null, value, confidence = 0.7, status = 'candidate' } = args;
+      const {
+        note_id,
+        fact_type,
+        subject = null,
+        value,
+        confidence = 0.7,
+        status = 'candidate',
+      } = args;
       const embedding = await generateEmbedding(value);
       const { data, error } = await supabase
         .from('memory_facts')
@@ -249,7 +271,8 @@ const tools = {
   },
   search_memory_facts: {
     name: 'search_memory_facts',
-    description: 'Semantic search across memory facts. Provide a query and retrieve facts that are conceptually similar.',
+    description:
+      'Semantic search across memory facts. Provide a query and retrieve facts that are conceptually similar.',
     input_schema: {
       type: 'object',
       properties: {
@@ -304,10 +327,14 @@ app.use(bodyParser.json());
 
 // MCP initialize route
 app.get('/mcp/initialize', (req, res) => {
+  // Provide high-level information about the server. ChatGPT uses this to
+  // determine protocol support and endpoints. We specify that the server uses
+  // HTTP endpoints for tool discovery and execution, and no authentication.
   res.json({
     name: 'Open Brain Memory MCP Server',
     version: '1.0.0',
-    description: 'Provides note and memory fact tools backed by a Supabase database with semantic search and storage.',
+    description:
+      'Provides note and memory fact tools backed by a Supabase database with semantic search and storage.',
     authentication: { type: 'none' },
     protocol: 'http',
     list_tools_endpoint: '/mcp/list_tools',
@@ -324,6 +351,7 @@ app.get('/mcp/list_tools', (req, res) => {
       description: t.description,
       input_schema: t.input_schema,
       output_schema: t.output_schema,
+      // Indicate readOnlyHint for ChatGPT: true means read-only (no write operations)
       readOnlyHint: !!t.readOnlyHint,
     };
   });
@@ -341,6 +369,7 @@ app.post('/mcp/call', async (req, res) => {
     if (!t) {
       return res.status(400).json({ error: `Unknown tool: ${tool}` });
     }
+    // Validate arguments: ensure required keys exist
     const inputSchema = t.input_schema;
     if (inputSchema && inputSchema.required) {
       for (const prop of inputSchema.required) {
@@ -349,6 +378,7 @@ app.post('/mcp/call', async (req, res) => {
         }
       }
     }
+    // Execute tool
     const result = await t.run(args || {});
     res.json({ result });
   } catch (err) {
