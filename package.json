@@ -1,15 +1,21 @@
 {
   "name": "open-brain-memory-server",
   "version": "1.0.0",
-  "description": "Remote memory server backed by Supabase",
+  "description": "Open Brain memory MCP server for Render",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5",
     "@supabase/supabase-js": "^2.39.6",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "zod": "^3.25.76"
   }
 }
