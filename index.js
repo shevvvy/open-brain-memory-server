@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
 import { randomUUID } from "node:crypto";
-import * as z from "zod/v4";
+import { z } from "zod";
+
+
+
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
@@ -74,7 +77,7 @@ function createMemoryServer() {
         project: z.string().optional().describe("Optional project tag"),
         category: z.string().optional().describe("Optional category"),
         importance: z.number().optional().describe("Importance from 1 to 5"),
-        metadata: z.record(z.any()).optional().describe("Optional JSON metadata")
+metadata: z.record(z.string(), z.any()).optional().describe("Optional JSON metadata")
       },
       outputSchema: {
         id: z.string(),
